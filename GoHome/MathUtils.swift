@@ -109,3 +109,26 @@ extension CGPoint {
         return atan2(y, x)
     }
 }
+
+let π = CGFloat(Double.pi)
+
+
+// Gira al policia de modo que tenga que rotar lo menos posible
+func shorterAngleBetween(angle1:CGFloat, angle2:CGFloat) -> CGFloat {
+    let twoπ = 2.0 * π
+    var angle = (angle2 - angle1).truncatingRemainder(dividingBy: twoπ)
+    if angle >= π {
+        angle -= twoπ
+    }
+    if angle <= -π {
+        angle += twoπ
+    }
+    // Despues de este fragmento, seguro que el angulo se encuentra entre -π y π, por lo tanto sabra hacia donde debe rotar con menor diferecia con respecto a su posicion original
+    return angle
+}
+
+extension CGFloat {
+    func signo() -> CGFloat {
+        return (self <= 0) ? 1.0 : -1.0
+    }
+}

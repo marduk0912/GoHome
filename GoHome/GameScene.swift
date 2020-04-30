@@ -7,18 +7,30 @@
 //
 
 import SpriteKit
+import Foundation
 
 
 
 class GameScene: SKScene {
     
-    let policia = SKSpriteNode(imageNamed: "Policia")
+    let policiaUno = SKTexture(imageNamed: "PoliciaDer")
+    let policiaDos = SKTexture(imageNamed: "PoliciaDer1")
+
+    var policia = SKSpriteNode()
+    var policiaCaminandoDer = SKAction()
+
+    
+    
     
     var lastUpdatedTime: TimeInterval = 0
     var dt: TimeInterval = 0
     
     let policiaPixelPerSecond: CGFloat = 200.0
+    let policiaAnglePerSecond: CGFloat = 1.0 * π
     var velocityPolicia = CGPoint.zero
+    var lastTouchLocation = CGPoint.zero
+    
+    let playableArea: CGRect = CGRect()
     
     
     override func didMove(to view: SKView) {
@@ -30,16 +42,25 @@ class GameScene: SKScene {
         backgraund.size.height = self.size.height
         addChild(backgraund)
         
+        
+        let animacionPoliciaDerecha = SKAction.animate(with: [policiaUno, policiaDos], timePerFrame: 0.1)
+        policiaCaminandoDer = SKAction.repeatForever(animacionPoliciaDerecha)
+        policia = SKSpriteNode(texture: policiaUno)
         policia.position = CGPoint(x: 25, y: 30)
+        policia.anchorPoint = CGPoint(x: 0.5, y: 0.5)
         policia.yScale = 0.75
         policia.xScale = 0.75
+        
         addChild(policia)
+        addCorona()
        
-        run(SKAction.repeat(SKAction.sequence([SKAction.run(addMujer), SKAction.run(addHombre), SKAction.sequence([SKAction.run(addCorona)]), SKAction.wait(forDuration: 0.5)]), count: 1))
+        run(SKAction.repeat(SKAction.sequence([SKAction.run(addMujer), SKAction.run(addHombre), SKAction.wait(forDuration: 0.5)]), count: 1))
         
         }
     
     override func update(_ currentTime: TimeInterval) {
+        
+        
         
         if lastUpdatedTime > 0 {
             dt = currentTime - lastUpdatedTime
@@ -48,38 +69,51 @@ class GameScene: SKScene {
         }
         lastUpdatedTime = currentTime
         
-        moveSprite(sprite: policia, velocity: velocityPolicia)
         checkBounds()
-        rotateSprite(sprite: policia, direction: velocityPolicia)
+        
+       if (policia.position - lastTouchLocation).longitud() < policiaPixelPerSecond * CGFloat(dt) {
+           velocityPolicia = CGPoint.zero
+           policia.removeAllActions()
+       }else {
+            moveSprite(sprite: policia, velocity: velocityPolicia)
+            //rotateSprite(sprite: policia, direction: velocityPolicia)
+           
+       }
+        
+      
     }
     
     func moveSprite(sprite:SKSpriteNode, velocity:CGPoint){
         
         // Espacio es igual a Velocidad por Tiempo
-        let cantidad = CGPoint(x: velocity.x * CGFloat(dt), y: velocity.y * CGFloat(dt))
-        sprite.position = CGPoint(x: sprite.position.x + cantidad.x, y: sprite.position.y + cantidad.y)
+        let cantidad = velocity * CGFloat(dt)
+        sprite.position += cantidad
     }
     
     func policiaToLocation(location: CGPoint) {
         
         //  Cantidad de movimiento que debemos darle al policia para llegar donde hemos tocado
-        let offset = CGPoint(x: location.x - policia.position.x, y: location.y - policia.position.y)
-        let longitudOffset = sqrt(Double(offset.x * offset.x + offset.y * offset.y))
+        let offset = location - policia.position
+        
         
         // Vector unitario de movimiento
-        let direccion = CGPoint(x: offset.x / CGFloat(longitudOffset), y: offset.y / CGFloat(longitudOffset))
-        velocityPolicia = CGPoint(x: direccion.x * policiaPixelPerSecond, y: direccion.y * policiaPixelPerSecond)
+        let direccion = offset.normaliza()
+        velocityPolicia = direccion * policiaPixelPerSecond
     }
     
     func sceneTouched(touchLocation: CGPoint){
         
+        lastTouchLocation = touchLocation
         policiaToLocation(location: touchLocation)
+        
         
     }
     
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         let touch = touches.first! as UITouch
         let location = touch.location(in: self)
+        policia.run(policiaCaminandoDer)
+        
         sceneTouched(touchLocation: location)
     }
     
@@ -113,9 +147,17 @@ class GameScene: SKScene {
         }
     }
     
-    func rotateSprite(sprite: SKSpriteNode, direction: CGPoint) {
-        sprite.zRotation = CGFloat(atan2(Double(direction.y), Double(direction.x)))
-    }
+    
+   /* func rotateSprite(sprite: SKSpriteNode, direction: CGPoint) {
+        
+        let shortestAngle = shorterAngleBetween(angle1: velocityPolicia.angle, angle2: sprite.zRotation)
+        let cantidadRotacion = min(policiaAnglePerSecond * CGFloat(dt), abs(shortestAngle))
+        
+        sprite.zRotation += cantidadRotacion * shortestAngle.signo()
+        
+        
+//        sprite.zRotation = atan2(direction.y, direction.x)
+    }*/
     
   
     
@@ -231,76 +273,29 @@ class GameScene: SKScene {
         let corona = SKSpriteNode(texture: corona1)
         corona.run(coronaGirando)
         
-        // Determine where to spawn the corona along the Y axis
-        let actualY = random(min: (self.view?.bounds.minY)! , max: (self.view?.bounds.maxY)!)
-        print("la posicion es \(actualY)")
-        print("min y \(String(describing: self.view?.bounds.minY))")
-        print("min y \(String(describing: self.view?.bounds.maxY))")
-        
-        // Position the corona slightly off-screen along the right edge,
-        // and along a random position along the Y axis as calculated above
-        corona.position = CGPoint(x: size.width + corona.size.width/2, y: actualY)
-  
-        // Add the corona to the scene
+        corona.position = CGPoint(x: size.width + corona.size.width/2, y: size.height/2)
         addChild(corona)
-        
-        // Determine speed of the corona
-        let actualDuration = random(min: CGFloat(2.0), max: CGFloat(3.5))
-        
-        // Create the actions
     
+  
+      //  let actionFirstMove = SKAction.move(to: CGPoint(x: size.width/2, y: playableArea.minY + corona.size.height/2), duration: 2.0)
+        let actionFirstMove = SKAction.moveBy(x: -corona.size.width/2 - size.width/2, y: -size.height/2 + corona.size.height/2, duration: 2.0)
+      
+        
+        let actionWait = SKAction.wait(forDuration: 1.0)
+      //  let actionSecondMove = SKAction.move(to: CGPoint(x: playableArea.minX, y: corona.position.y), duration: 2.0)
     
+        let actionSecondMove = SKAction.moveBy(x: -corona.size.width/2 - size.width/2, y: playableArea.height/2 + size.height/2, duration: 2.0)
        
+        let killNodo = SKAction.removeFromParent()
     
-        let actionMove = SKAction.move(to: CGPoint(x: -corona.size.width/2, y: actualY), duration: TimeInterval(actualDuration))
-        let actionMoveDone = SKAction.removeFromParent()
-        corona.run(SKAction.sequence([actionMove, actionMoveDone]))
+        let firstSecuence = SKAction.sequence([actionFirstMove, actionWait, actionSecondMove])
+        let reverseSecuence = firstSecuence.reversed()
+        
+        let secuence = SKAction.sequence([firstSecuence, reverseSecuence, killNodo])
+    
+        corona.run(secuence)
+   
       }
-
-   /*
-          
-          // 1
-           let corona1 = SKTexture(imageNamed: "corona")
-           corona1.filteringMode = SKTextureFilteringMode.nearest
-           let corona2 = SKTexture(imageNamed: "corona1")
-           corona2.filteringMode = SKTextureFilteringMode.nearest
-           let corona3 = SKTexture(imageNamed: "corona2")
-           corona3.filteringMode = SKTextureFilteringMode.nearest
-           let corona4 = SKTexture(imageNamed: "corona3")
-           corona4.filteringMode = SKTextureFilteringMode.nearest
-                    
-           let animacionCorona = SKAction.animate(with: [corona1, corona2, corona3, corona4], timePerFrame: 0.2)
-           let coronaGirando = SKAction.repeatForever(animacionCorona)
-                    
-           let corona = SKSpriteNode(texture: corona1)
-           corona.run(coronaGirando)
-          
-           corona.position = CGPoint(x: 0, y: 0)
-           addChild(corona)
-          
-          // 2
-          let path = CGMutablePath()
-          path.move(to: CGPoint(x: 0, y: 0))
-          path.addLine(to: CGPoint(x: 250, y: 250))
-          let followLine = SKAction.follow(path, speed: 20.0)
-              
-          // 3
-          let reversedLine = followLine.reversed()
-              
-          // 4
-          let square = UIBezierPath(rect: CGRect(x: random(),y: random(), width: 150, height: 150))
-          let followSquare = SKAction.follow(square.cgPath, asOffset: true, orientToPath: false, duration: 5.0)
-              
-          // 5
-          let circle = UIBezierPath(roundedRect: CGRect(x: random(), y: random(), width: 150, height: 150), cornerRadius: 500)
-          let followCircle = SKAction.follow(circle.cgPath, asOffset: true, orientToPath: false, duration: 5.0)
-              
-          // 6
-          corona.run(SKAction.repeatForever(SKAction.sequence([followLine,reversedLine,followSquare,followCircle])))
-   
-   
-          */
-
-    
+ 
   
 }
